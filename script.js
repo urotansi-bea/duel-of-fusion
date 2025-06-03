@@ -1,4 +1,4 @@
-// script.js (完全版 - 2025-06-01 時点での最終確認・整理版、攻撃ボタン修正適用)
+// script.js (完全版 - 2025-06-01 時点での最終確認・整理版、gameRulesText修正適用)
 
 // カードデータ定義
 const cardData = [
@@ -6,10 +6,10 @@ const cardData = [
     { id: "C001", type: "creature", name: "森の番人", manaCost: 2, atk: 2, hp: 3, abilities: [] },
     { id: "C002", type: "creature", name: "炎の獣", manaCost: 3, atk: 3, hp: 2, abilities: [] },
     { id: "C003", type: "creature", name: "鋼の守護者", manaCost: 4, atk: 2, hp: 5, abilities: ["ブロック"] },
-    { id: "C004", type: "creature", name: "風の妖精", manaCost: 1, atk: 1, hp: 1, abilities: [] },
+    { id: "C004", type: "creature", name: "風の妖精", manaCost: 1, atk: 1, hp: 1, abilities: [] }, // 飛行は一旦削除
     { id: "C005", type: "creature", name: "大地の巨人", manaCost: 5, atk: 4, hp: 4, abilities: [] },
     { id: "C008", type: "creature", name: "超伝導ロボ", manaCost: 7, atk: 3, hp: 15, abilities: [] },
-    { id: "C006", type: "creature", name: "俊足の斥候", manaCost: 1, atk: 1, hp: 1, abilities: [] },
+    { id: "C006", type: "creature", name: "俊足の斥候", manaCost: 1, atk: 1, hp: 1, abilities: [] }, // 速攻は一旦削除
     { id: "C007", type: "creature", name: "岩窟のトロール", manaCost: 4, atk: 3, hp: 5, abilities: ["再生"] },
     { id: "C009", type: "creature", name: "飛行布団", manaCost: 2, atk: 1, hp: 4, abilities: [] },
     { id: "C010", type: "creature", name: "アルミ缶みかん", manaCost: 3, atk: 2, hp: 5, abilities: [] },
@@ -167,8 +167,10 @@ const gameState = {
     mainDeck: [], graveyard: [], pendingSolarisEffect: null
 };
 
+// ★★★ ここからが gameRulesText の正しい定義です ★★★
 const gameRulesText = `
 デュエル・オブ・フュージョン ルール詳細案（最終調整版）
+
 1. ゲームの目的
     相手の「デッキマスター」を5枚すべて破壊すること。
 
@@ -244,9 +246,9 @@ const gameRulesText = `
 7. 敗北条件
     自分の場に残っているデッキマスター5枚すべてが破壊される。
     ドローフェーズで自分のデッキが0枚の場合。
-`;
+`; // ★★★ ここで gameRulesText の文字列が正しく閉じられます ★★★
 
-// ユーティリティ関数 (script.js のトップレベル)
+// ユーティリティ関数
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -349,19 +351,24 @@ document.addEventListener('DOMContentLoaded', () => {
         let displayATK = card.atk !== undefined ? card.atk : '-';
         let displayHP = (currentHP !== null) ? currentHP : (card.hp !== undefined ? card.hp : '-');
         
+        // 魂集めのワイト(C_N02)のATK計算
         if (card.id === 'C_N02') {
             let ownerForGraveyardCheck = null;
             if (fieldCreatureObject) { 
                 if (gameState.self.field.includes(fieldCreatureObject)) ownerForGraveyardCheck = 'self';
                 else if (gameState.opponent.field.includes(fieldCreatureObject)) ownerForGraveyardCheck = 'opponent';
             } else if (uiElements.deckEditorScreen.style.display !== 'none' || (gameState.currentPlayer === 'self' && gameState.self.hand.find(hCard => hCard.id === card.id))) {
+                 // デッキ編集画面、または自分の手札のワイトの場合、便宜上自分の墓地を参照（あるいは表示専用ATKとしてベース値を出す）
+                 // ここではゲーム中の表示を優先し、自分の墓地を見ることにする
                  ownerForGraveyardCheck = 'self';
             }
+            // 相手の手札のワイトのATKを知る術はないので、ここでは考慮しない
             
             if (ownerForGraveyardCheck && gameState[ownerForGraveyardCheck] && Array.isArray(gameState[ownerForGraveyardCheck].graveyard)) {
                 const creatureCardsInGraveyard = gameState[ownerForGraveyardCheck].graveyard.filter(c => c.type === 'creature' || c.type === 'deck_master').length;
                 displayATK = (card.atk || 0) + creatureCardsInGraveyard;
             } else {
+                // 参照できる墓地がない場合は基本ATK
                 displayATK = card.atk || 0; 
             }
         }
@@ -834,7 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const cardElement = createCardElement(creatureInSlot.card, creatureInSlot.currentHP, true, creatureInSlot); 
                     if (creatureInSlot.hasAttacked) cardElement.classList.add('has-attacked');
                     handleCardInteraction(cardElement, creatureInSlot.card, 
-                        () => { // singleClickAction
+                        () => { 
                             if (playerType === 'self') {
                                 handleFieldCreatureClick(creatureInSlot.card.id, i, 'self');
                             } else { 
@@ -870,8 +877,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        let effectApplied = false;
+        let effectApplied = false; // 効果が適用されたかどうかのフラグ
     
+        // ターゲット指定が必要な効果の解決
         if (effectToApply.type === "return_creature_to_hand" && targetOwner === 'self' && targetObject.card.type === 'creature') {
             applyReturnCreatureToHandEffect(targetObject, targetSlotIndex);
             effectApplied = true;
@@ -879,6 +887,8 @@ document.addEventListener('DOMContentLoaded', () => {
             applyHealDeckMasterInZoneEffect(targetObject, effectToApply.value);
             effectApplied = true;
         } else if (effectToApply.type === "damage" || (effectToApply.type === "heal" && targetObject.card.type === 'creature')) {
+            // applySpellEffectToTargetに渡すspellCardは、効果の発生源となるカード
+            // currentTargetInfo.card がソラリスならソラリス、通常のスペルならそのスペルカード
             applySpellEffectToTarget(currentTargetInfo ? currentTargetInfo.card : spellCard, targetObject, targetOwner, targetSlotIndex, effectToApply);
             effectApplied = true;
         } else {
@@ -887,22 +897,28 @@ document.addEventListener('DOMContentLoaded', () => {
     
         const wasSolarisEffect = currentTargetInfo?.isSolarisEffect;
 
+        // awaitingSpellTarget のクリアはここで行う
         if (effectApplied || (effectToApply && !effectToApply.requiresTarget)) { 
+            // ソラリス効果で、かつ元のスペルを保留している場合は、まだクリアしない
             if (!(wasSolarisEffect && gameState.pendingSolarisEffect)) {
                 gameState.awaitingSpellTarget = null;
                 document.querySelectorAll('.potential-spell-target').forEach(el => el.classList.remove('potential-spell-target'));
             }
         }
         
+        // ソラリス効果を解決し、元のスペルが保留されていた場合
         if (wasSolarisEffect && gameState.pendingSolarisEffect) {
             const originalSpell = gameState.pendingSolarisEffect.originalSpell;
-            gameState.pendingSolarisEffect = null; 
-            gameState.awaitingSpellTarget = null;
+            gameState.pendingSolarisEffect = null; // 保留解除
+            // ソラリスのターゲット情報をクリア（上記ifの外でクリアされるので、ここでは不要かもしれないが念のため）
+            gameState.awaitingSpellTarget = null; 
             document.querySelectorAll('.potential-spell-target').forEach(el => el.classList.remove('potential-spell-target'));
             
             console.log("ソラリス効果解決後、元のスペルを解決します:", originalSpell.name);
-            resolveSpellEffect(originalSpell, 'self'); 
+            resolveSpellEffect(originalSpell, 'self'); // 元のスペル効果を解決 (これが終わるとupdateAllUIが呼ばれる)
+            // 注意: resolveSpellEffectが非同期でない場合、この後のupdateAllUIは二重呼び出しになる可能性
         } else {
+            // 通常のスペル効果後、または効果が適用されなかった場合もUI更新
             updateAllUI(); 
         }
     }
@@ -910,12 +926,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleCardClick(cardId) {
         if (gameState.currentPlayer !== 'self' || gameState.currentPhase !== 'main' || gameState.currentPhase === 'gameOver') return;
         
-        if (gameState.awaitingSpellTarget && !gameState.awaitingSpellTarget.isSolarisEffect) {
+        if (gameState.awaitingSpellTarget && !gameState.awaitingSpellTarget.isSolarisEffect) { // 通常のスペルターゲット選択中
              if (confirm("スペルのターゲット選択をキャンセルしますか？")) {
                 cancelSpellTargeting();
              }
              return; 
         }
+        // ソラリス効果のターゲット選択中は、他のカードプレイを一旦ブロック (ターゲットクリックは handleTargetClick で処理される)
         if (gameState.awaitingSpellTarget && gameState.awaitingSpellTarget.isSolarisEffect) {
             alert("ソラリスの効果のターゲットを選択中です。他のカードはプレイできません。");
             return;
@@ -949,7 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const emptySlotIndex = gameState.self.field.findIndex(slot => slot === null);
             if (emptySlotIndex === -1) { alert("フィールドがいっぱいです！"); return; }
 
-            gameState.self.currentMana -= effectiveManaCost;
+            gameState.self.currentMana -= effectiveManaCost; // クリーチャーにはコスト軽減は適用しない想定
             const playedCard = gameState.self.hand.splice(cardIndex, 1)[0];
             gameState.self.field[emptySlotIndex] = { card: { ...playedCard }, currentHP: playedCard.hp, hasAttacked: false, powerCounters: 0 };
 
@@ -959,7 +976,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (clickedCard.type === 'spell') {
             gameState.self.currentMana -= effectiveManaCost;
             
-            if (gameState.self.nextSpellCostReduction > 0 && clickedCard.id !== "S_E01") { 
+            if (gameState.self.nextSpellCostReduction > 0 && clickedCard.id !== "S_E01") { // 魔力循環自身は消費しない
                 gameState.self.nextSpellCostReduction = 0; 
                 alert("コスト軽減効果を消費しました。");
             }
@@ -997,8 +1014,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!solarisEffectTriggeredAndAwaitingTarget) {
                  resolveSpellEffect(playedSpell, 'self'); 
             } else {
-                gameState.pendingSolarisEffect = { originalSpell: playedSpell };
-                updateAllUI(); 
+                gameState.pendingSolarisEffect = { originalSpell: playedSpell }; // 元のスペルを保留
+                updateAllUI(); // UI更新のみで、元のスペル解決はターゲット選択後
             }
             return; 
         }
@@ -1358,7 +1375,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.self.field[slotIndexInField] = null;
         if (gameState.self.hand.length < 7) { gameState.self.hand.push(returnedCardData); } 
         else { alert("手札がいっぱいです！戻されたカードは墓地に送られます。"); gameState.graveyard.push(returnedCardData); }
-        checkCoreMachinaAwakening('self'); // クリーチャーが場からいなくなったのでチェック
+        checkCoreMachinaAwakening('self');
         updateAllUI();
     }
 
@@ -1430,7 +1447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function cancelSpellTargeting() {
         if (gameState.awaitingSpellTarget) {
             gameState.awaitingSpellTarget = null;
-            gameState.pendingSolarisEffect = null; // ソラリス効果もキャンセル
+            gameState.pendingSolarisEffect = null;
             document.querySelectorAll('.potential-spell-target').forEach(el => el.classList.remove('potential-spell-target'));
             updateUI(); 
         }
@@ -1475,7 +1492,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Liche Activated Ability
         if (clickedCreatureInField.card.id === 'DM_N01' && gameState.currentPhase === 'main') {
-            if (gameState.self.licheAbilityUsedThisTurn) {
+            if (gameState.self.licheAbilityUsedThisTurn) { 
                 alert('リッチェの起動能力は、1ターンに1度しか使えません。'); return;
             }
             const abilityCost = 2; 
@@ -1674,7 +1691,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         let finalAttackerAtk = attackerOnField.card.atk;
-        if (attackerOnField.card.id === 'C_N02') { // 魂集めのワイト(攻撃側)
+        if (attackerOnField.card.id === 'C_N02') { 
             if (gameState[attackerOwner] && Array.isArray(gameState[attackerOwner].graveyard)) {
                 const creatureCardsInGraveyard = gameState[attackerOwner].graveyard.filter(c => c.type === 'creature' || c.type === 'deck_master').length;
                 finalAttackerAtk = (attackerOnField.card.atk || 0) + creatureCardsInGraveyard;
@@ -1732,8 +1749,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function destroyCard(destroyedObject, slotIndex, type, owner) {
         if (!destroyedObject || !destroyedObject.card) { console.error("Destroy target is invalid", destroyedObject); return; }
-        const cardToDestroyCopy = { ...destroyedObject.card }; // 破壊時効果のために元のカード情報をコピー
-        const fieldObjectCopy = { ...destroyedObject }; // フィールドオブジェクトの情報もコピー
+        const cardToDestroyCopy = { ...destroyedObject.card }; 
+        const fieldObjectCopy = { ...destroyedObject }; 
     
         gameState.graveyard.push(cardToDestroyCopy);
         console.log(`${owner}の${type}「${cardToDestroyCopy.name}」が破壊された。`);
@@ -1762,7 +1779,6 @@ document.addEventListener('DOMContentLoaded', () => {
             resetAttackState();
         }
         
-        // 破壊時効果の処理 (cardToDestroyCopy は基本カードデータ、originalFieldObjectInfo はフィールド上の実体)
         if (cardToDestroyCopy.onDeathEffect) { 
             const playerStateForEffect = gameState[owner];
             console.log(`「${cardToDestroyCopy.name}」の破壊時効果を発動します: ${cardToDestroyCopy.onDeathEffect.type}`);
@@ -1785,7 +1801,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert(`「${cardToDestroyCopy.name}」の破壊時効果で山札から${actualMilledCount}枚のカードが墓地に送られました。`);
                     }
                     break;
-                // 他の破壊時効果をここに追加
                 default:
                     console.warn(`未対応の破壊時効果タイプ: ${cardToDestroyCopy.onDeathEffect.type}`);
             }
@@ -1869,7 +1884,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (gameState.currentPhase === 'main') { 
                 gameState.currentPhase = 'attack'; 
                 alert("攻撃フェーズへ。攻撃する自分のクリーチャーをシングルクリックで選択してください。"); 
-                cancelSpellTargeting(); // ★攻撃フェイズ移行時にターゲットキャンセル
+                cancelSpellTargeting();
                 resetAttackState(); 
             } else if (gameState.currentPhase === 'attack') { 
                 if (!gameState.selectedAttacker) alert("攻撃する自分のクリーチャーをシングルクリックで選択してください。"); 
@@ -1893,7 +1908,7 @@ document.addEventListener('DOMContentLoaded', () => {
         uiElements.endTurnButton.addEventListener('click', () => { 
             if (gameState.currentPlayer !== 'self' || gameState.currentPhase === 'gameOver' || checkGameEnd(true)) return; 
             resetAttackState(); 
-            cancelSpellTargeting(); // ターン終了時にもターゲットキャンセル
+            cancelSpellTargeting(); 
             gameState.self.field.forEach(c => { if (c) c.hasAttacked = false; });
             while (gameState.self.hand.length > 7) { 
                 const discarded = gameState.self.hand.pop(); 
@@ -1904,7 +1919,7 @@ document.addEventListener('DOMContentLoaded', () => {
             gameState.opponent.spellsCastThisTurn = 0; 
             gameState.opponent.solarisAbilityUsedThisTurn = false; 
             gameState.opponent.licheAbilityUsedThisTurn = false; 
-            gameState.opponent.nextSpellCostReduction = 0; //相手のコスト軽減もリセット
+            gameState.opponent.nextSpellCostReduction = 0; 
             gameState.currentPlayer = 'opponent'; 
             updateUI(); 
             setTimeout(startOpponentTurn, 1000); 
@@ -2045,7 +2060,4 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.self.currentMana = gameState.self.maxMana;
         updateAllUI();
     }
-
-    // 初期ゲーム開始 (ボタンクリックで行うのでここではコメントアウト)
-    // resetGame(); 
 });
