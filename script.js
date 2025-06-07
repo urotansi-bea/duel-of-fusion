@@ -1,4 +1,4 @@
-// script.js (完全版 - 2025-06-01 時点での最終確認・整理版)
+// script.js (完全版 - 2025-06-02 時点での最終修正版)
 
 // =================================================================
 // グローバル定義セクション
@@ -161,16 +161,17 @@ const gameState = {
     self: {
         currentMana: 0, maxMana: 1, deckMasters: [], hand: [], field: new Array(5).fill(null),
         destroyedDeckMastersCount: 0, spellsCastThisTurn: 0, solarisAbilityUsedThisTurn: false,
-        nextSpellCostReduction: 0, licheAbilityUsedThisTurn: false
+        nextSpellCostReduction: 0, licheAbilityUsedThisTurn: false, graveyard: []
     },
     opponent: {
         currentMana: 0, maxMana: 1, deckMasters: [], hand: [], field: new Array(5).fill(null),
         destroyedDeckMastersCount: 0, spellsCastThisTurn: 0, solarisAbilityUsedThisTurn: false,
-        nextSpellCostReduction: 0, licheAbilityUsedThisTurn: false
+        nextSpellCostReduction: 0, licheAbilityUsedThisTurn: false, graveyard: []
     },
-    mainDeck: [], graveyard: [], pendingSolarisEffect: null
+    mainDeck: [], pendingSolarisEffect: null
 };
 
+// --- ここで`gameRulesText`の定義が正しく閉じられます ---
 const gameRulesText = `
 デュエル・オブ・フュージョン ルール詳細案（最終調整版）
 
@@ -251,7 +252,6 @@ const gameRulesText = `
     ドローフェーズで自分のデッキが0枚の場合。
 `;
 
-// --- ここからがDOMContentLoadedリスナー ---
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 主要な定数とグローバル変数 ---
@@ -323,10 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const j = Math.floor(Math.random() * (i + 1));
             [array[i], array[j]] = [array[j], array[i]];
         }
-    }
-
-
-function drawCardToHand(playerType) {
+    }  
+  
+  
+  function drawCardToHand(playerType) {
         const player = gameState[playerType];
         if (!player || !Array.isArray(player.hand)) {
             console.error(`${playerType} hand is not an array.`);
@@ -443,6 +443,8 @@ function drawCardToHand(playerType) {
         cardDiv.innerHTML = htmlContent;
         return cardDiv;
     }
+    
+ 
     
     function handleCardInteraction(cardElement, cardData, singleClickAction, longPressAction, currentHP = null) {
         let pressTimer = null;
