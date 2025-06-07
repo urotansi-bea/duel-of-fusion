@@ -1,15 +1,19 @@
-// script.js (完全版 - 2025-06-01 時点での最終確認・整理版、gameRulesText修正適用)
+// script.js (完全版 - 2025-06-01 時点での最終確認・整理版)
 
-// カードデータ定義
+// =================================================================
+// グローバル定義セクション
+// =================================================================
+
+// --- カードデータ定義 ---
 const cardData = [
     // オリジナルカード
     { id: "C001", type: "creature", name: "森の番人", manaCost: 2, atk: 2, hp: 3, abilities: [] },
     { id: "C002", type: "creature", name: "炎の獣", manaCost: 3, atk: 3, hp: 2, abilities: [] },
     { id: "C003", type: "creature", name: "鋼の守護者", manaCost: 4, atk: 2, hp: 5, abilities: ["ブロック"] },
-    { id: "C004", type: "creature", name: "風の妖精", manaCost: 1, atk: 1, hp: 1, abilities: [] }, // 飛行は一旦削除
+    { id: "C004", type: "creature", name: "風の妖精", manaCost: 1, atk: 1, hp: 1, abilities: [] },
     { id: "C005", type: "creature", name: "大地の巨人", manaCost: 5, atk: 4, hp: 4, abilities: [] },
     { id: "C008", type: "creature", name: "超伝導ロボ", manaCost: 7, atk: 3, hp: 15, abilities: [] },
-    { id: "C006", type: "creature", name: "俊足の斥候", manaCost: 1, atk: 1, hp: 1, abilities: [] }, // 速攻は一旦削除
+    { id: "C006", type: "creature", name: "俊足の斥候", manaCost: 1, atk: 1, hp: 1, abilities: [] },
     { id: "C007", type: "creature", name: "岩窟のトロール", manaCost: 4, atk: 3, hp: 5, abilities: ["再生"] },
     { id: "C009", type: "creature", name: "飛行布団", manaCost: 2, atk: 1, hp: 4, abilities: [] },
     { id: "C010", type: "creature", name: "アルミ缶みかん", manaCost: 3, atk: 2, hp: 5, abilities: [] },
@@ -167,7 +171,6 @@ const gameState = {
     mainDeck: [], graveyard: [], pendingSolarisEffect: null
 };
 
-// ★★★ ここからが gameRulesText の正しい定義です ★★★
 const gameRulesText = `
 デュエル・オブ・フュージョン ルール詳細案（最終調整版）
 
@@ -246,17 +249,12 @@ const gameRulesText = `
 7. 敗北条件
     自分の場に残っているデッキマスター5枚すべてが破壊される。
     ドローフェーズで自分のデッキが0枚の場合。
-`; // ★★★ ここで gameRulesText の文字列が正しく閉じられます ★★★
+`;
 
-// ユーティリティ関数
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-}
-
+// --- ここからがDOMContentLoadedリスナー ---
 document.addEventListener('DOMContentLoaded', () => {
+
+    // --- 主要な定数とグローバル変数 ---
     const MAX_DECK_SIZE = 30;
     const MAX_COPIES_PER_CARD = 3;
     const MAX_DECK_MASTERS = 5;
@@ -265,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEditingDeck = [];
     let currentEditingDMs = [];
 
+    // --- UI要素のキャッシュ ---
     const uiElements = {
         startScreen: document.getElementById('start-screen'),
         startGameButton: document.getElementById('start-game-button'),
@@ -277,8 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
         selfFieldZone: document.querySelector('.self-field-zone'),
         opponentFieldZone: document.querySelector('.opponent-field-zone'),
         mainDeckCardsCount: document.getElementById('main-deck-cards-count'),
-        opponentDeckCount: document.getElementById('opponent-deck-count'),
-        selfDeckCount: document.getElementById('self-deck-count'),
+        graveyardDisplayArea: document.getElementById('graveyard-display-area'),
+        graveyardCount: document.getElementById('graveyard-count'),
         selfCurrentMana: document.getElementById('self-current-mana'),
         selfMaxMana: document.getElementById('self-max-mana'),
         opponentCurrentManaDisplay: document.getElementById('opponent-current-mana'),
@@ -311,39 +310,23 @@ document.addEventListener('DOMContentLoaded', () => {
         cardDetailModal: document.getElementById('card-detail-modal'),
         modalCardDetailArea: document.getElementById('modal-card-detail-area'),
         modalCloseButton: document.getElementById('modal-close-button'),
-         graveyardDisplayArea: document.getElementById('graveyard-display-area'), // 追加
-    graveyardViewModal: document.getElementById('graveyard-view-modal'),       // 追加
-    graveyardModalCloseButton: document.getElementById('graveyard-modal-close-button'), // 追加
-    graveyardCardsArea: document.getElementById('graveyard-cards-area'),         // 追加
-    graveyardModalCardCount: document.getElementById('graveyard-modal-card-count') // 追加
-    
+        graveyardViewModal: document.getElementById('graveyard-view-modal'),
+        graveyardModalCloseButton: document.getElementById('graveyard-modal-close-button'),
+        graveyardCardsArea: document.getElementById('graveyard-cards-area'),
+        graveyardModalCardCount: document.getElementById('graveyard-modal-card-count')
     };
 
-    // --- ここから関数定義 (DOMContentLoaded の内側) ---
-    function showSummonEffect(playerType, slotIndex) {
-    const slotElement = document.querySelector(`.${playerType}-field-zone .field-slot[data-slot-index="${slotIndex}"]`);
-    if (slotElement) {
-        const effectElement = slotElement.querySelector('.summon-effect-overlay');
-        if (effectElement) {
-            // アニメーションを再度実行できるように、一度クラスを削除して再度追加する
-            effectElement.classList.remove('active');
-            // ブラウザに再描画を強制させるための、ちょっとしたおまじない
-            void effectElement.offsetWidth;
-            effectElement.classList.add('active');
+    // --- ここから関数定義 ---
 
-            // アニメーション終了後にクラスを削除して、次のアニメーションに備える
-            // 500ミリ秒は、CSSで設定したアニメーションの時間 (0.5s) と合わせます
-            setTimeout(() => {
-                // まだ要素が存在すればクラスを削除
-                if (effectElement) {
-                    effectElement.classList.remove('active');
-                }
-            }, 500); 
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
         }
     }
-}
 
-    function drawCardToHand(playerType) {
+
+function drawCardToHand(playerType) {
         const player = gameState[playerType];
         if (!player || !Array.isArray(player.hand)) {
             console.error(`${playerType} hand is not an array.`);
@@ -365,139 +348,102 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-   // 既存の createCardElement 関数を、以下の内容に完全に置き換えてください。
-function createCardElement(card, currentHP = null, isSummaryView = false, fieldCreatureObject = null) {
-    const cardDiv = document.createElement('div');
-    cardDiv.classList.add('card-placeholder');
-    if (!card || !card.id) {
-        cardDiv.innerHTML = '---';
-        return cardDiv;
+    function showSummonEffect(playerType, slotIndex) {
+        const slotElement = document.querySelector(`.${playerType}-field-zone .field-slot[data-slot-index="${slotIndex}"]`);
+        if (slotElement) {
+            const effectElement = slotElement.querySelector('.summon-effect-overlay');
+            if (effectElement) {
+                effectElement.classList.remove('active');
+                void effectElement.offsetWidth;
+                effectElement.classList.add('active');
+                setTimeout(() => {
+                    if (effectElement) {
+                        effectElement.classList.remove('active');
+                    }
+                }, 500);
+            }
+        }
     }
 
-    cardDiv.dataset.cardId = card.id;
-    cardDiv.dataset.cardType = card.type;
-    if (isSummaryView) cardDiv.classList.add('summary-view');
+    function createCardElement(card, currentHP = null, isSummaryView = false, fieldCreatureObject = null) {
+        const cardDiv = document.createElement('div');
+        cardDiv.classList.add('card-placeholder');
+        if (!card || !card.id) {
+            cardDiv.innerHTML = '---';
+            return cardDiv;
+        }
+        cardDiv.dataset.cardId = card.id;
+        cardDiv.dataset.cardType = card.type;
+        if (isSummaryView) cardDiv.classList.add('summary-view');
 
-    let displayATK = card.atk !== undefined ? card.atk : '-';
-    let displayHP = (currentHP !== null) ? currentHP : (card.hp !== undefined ? card.hp : '-');
-    
-    if (card.id === 'C_N02') { // 魂集めのワイト
-        let ownerForGraveyardCheck = null;
-        if (fieldCreatureObject) { 
-            if (gameState.self.field.includes(fieldCreatureObject)) ownerForGraveyardCheck = 'self';
-            else if (gameState.opponent.field.includes(fieldCreatureObject)) ownerForGraveyardCheck = 'opponent';
-        } else if (uiElements.deckEditorScreen.style.display !== 'none' || (gameState.currentPlayer === 'self' && gameState.self.hand.find(hCard => hCard.id === card.id))) {
-             ownerForGraveyardCheck = 'self';
+        let displayATK = card.atk !== undefined ? card.atk : '-';
+        let displayHP = (currentHP !== null) ? currentHP : (card.hp !== undefined ? card.hp : '-');
+        
+        if (card.id === 'C_N02') {
+            let ownerForGraveyardCheck = null;
+            if (fieldCreatureObject) { 
+                if (gameState.self.field.includes(fieldCreatureObject)) ownerForGraveyardCheck = 'self';
+                else if (gameState.opponent.field.includes(fieldCreatureObject)) ownerForGraveyardCheck = 'opponent';
+            } else if (uiElements.deckEditorScreen.style.display !== 'none' || (gameState.self && gameState.self.hand.find(hCard => hCard.id === card.id))) {
+                 ownerForGraveyardCheck = 'self';
+            }
+            
+            if (ownerForGraveyardCheck && gameState[ownerForGraveyardCheck] && Array.isArray(gameState[ownerForGraveyardCheck].graveyard)) {
+                const creatureCardsInGraveyard = gameState[ownerForGraveyardCheck].graveyard.filter(c => c.type === 'creature' || c.type === 'deck_master').length;
+                displayATK = (card.atk || 0) + creatureCardsInGraveyard;
+            } else {
+                displayATK = card.atk || 0; 
+            }
+        }
+
+        if (fieldCreatureObject && typeof fieldCreatureObject.powerCounters === 'number' && fieldCreatureObject.powerCounters > 0) {
+            if (card.atk !== undefined && typeof displayATK === 'number') { 
+                displayATK += fieldCreatureObject.powerCounters;
+            }
         }
         
-        if (ownerForGraveyardCheck && gameState[ownerForGraveyardCheck] && Array.isArray(gameState[ownerForGraveyardCheck].graveyard)) {
-            const creatureCardsInGraveyard = gameState[ownerForGraveyardCheck].graveyard.filter(c => c.type === 'creature' || c.type === 'deck_master').length;
-            displayATK = (card.atk || 0) + creatureCardsInGraveyard;
-        } else {
-            displayATK = card.atk || 0; 
+        if (fieldCreatureObject && fieldCreatureObject.card.id === 'DM_A01' && fieldCreatureObject.isAwakened) {
+             const coreMachinaBaseData = cardData.find(c=>c.id === 'DM_A01');
+             if(coreMachinaBaseData && coreMachinaBaseData.onSummonEffect && coreMachinaBaseData.onSummonEffect.awakened_stats){
+                displayATK = coreMachinaBaseData.onSummonEffect.awakened_stats.atk;
+             }
         }
-    }
-
-    if (fieldCreatureObject && typeof fieldCreatureObject.powerCounters === 'number' && fieldCreatureObject.powerCounters > 0) {
-        if (card.atk !== undefined && typeof displayATK === 'number') { 
-            displayATK += fieldCreatureObject.powerCounters;
+        const cardTitle = card.subtype ? `${card.name} <span class="card-subtype">[${card.subtype}]</span>` : card.name;
+        let htmlContent = `<div class="card-name">${cardTitle}</div>`;
+        if (card.hasOwnProperty('manaCost') && card.type !== 'magic_square') {
+            htmlContent += `<div class="card-cost">マナ:${card.manaCost}</div>`;
         }
+        if (card.type === 'creature' || card.type === 'deck_master') {
+            cardDiv.classList.add('creature-card');
+            if (card.type === 'deck_master') {
+                cardDiv.classList.add('deck-master-card-visual');
+            }
+            htmlContent += `
+                <div class="card-stats">
+                    <span class="card-atk">ATK:${displayATK}</span> / <span class="card-hp">HP:${displayHP}</span>
+                </div>`;
+        } else if (card.type === 'spell') {
+            cardDiv.classList.add('spell-card');
+        } else if (card.type === 'magic_square') {
+            cardDiv.classList.add('magic-square-card');
+        }
+        if (!isSummaryView) {
+            let abilitiesText = card.abilities ? card.abilities.join(', ') : '';
+            htmlContent += `<div class="card-abilities">${abilitiesText}</div>`;
+            let allEffectTexts = [];
+            if (card.effectText) allEffectTexts.push(card.effectText);
+            if (card.onSummonEffectText) allEffectTexts.push(card.onSummonEffectText);
+            if (card.activatedAbilityText) allEffectTexts.push(card.activatedAbilityText);
+            if (card.onDeathEffectText) allEffectTexts.push(card.onDeathEffectText);
+            const effectDescription = allEffectTexts.join('<br><hr class="effect-divider"><br>');
+            if (effectDescription) {
+                htmlContent += `<div class="card-effect">${effectDescription}</div>`;
+            }
+        }
+        cardDiv.innerHTML = htmlContent;
+        return cardDiv;
     }
     
-    if (fieldCreatureObject && fieldCreatureObject.card.id === 'DM_A01' && fieldCreatureObject.isAwakened) {
-         const coreMachinaBaseData = cardData.find(c=>c.id === 'DM_A01');
-         if(coreMachinaBaseData && coreMachinaBaseData.onSummonEffect && coreMachinaBaseData.onSummonEffect.awakened_stats){
-            displayATK = coreMachinaBaseData.onSummonEffect.awakened_stats.atk;
-         }
-    }
-
-    const cardTitle = card.subtype ? `${card.name} <span class="card-subtype">[${card.subtype}]</span>` : card.name;
-    let htmlContent = `<div class="card-name">${cardTitle}</div>`;
-
-    if (card.hasOwnProperty('manaCost') && card.type !== 'magic_square') {
-        htmlContent += `<div class="card-cost">マナ:${card.manaCost}</div>`;
-    }
-
-    if (card.type === 'creature' || card.type === 'deck_master') {
-        cardDiv.classList.add('creature-card');
-        if (card.type === 'deck_master') {
-            cardDiv.classList.add('deck-master-card-visual');
-        }
-        htmlContent += `
-            <div class="card-stats">
-                <span class="card-atk">ATK:${displayATK}</span> / <span class="card-hp">HP:${displayHP}</span>
-            </div>`;
-    } else if (card.type === 'spell') {
-        cardDiv.classList.add('spell-card');
-    } else if (card.type === 'magic_square') {
-        cardDiv.classList.add('magic-square-card');
-    }
-
-    if (!isSummaryView) {
-        let abilitiesText = card.abilities ? card.abilities.join(', ') : '';
-        htmlContent += `<div class="card-abilities">${abilitiesText}</div>`;
-
-        // ▼▼▼ 効果テキスト表示ロジックの修正 ▼▼▼
-        let allEffectTexts = [];
-        if (card.effectText) { // 主にスペル用、またはワイトのような常時能力テキスト
-            allEffectTexts.push(card.effectText);
-        }
-        if (card.onSummonEffectText) { // 召喚時効果テキスト
-            allEffectTexts.push(card.onSummonEffectText);
-        }
-        if (card.activatedAbilityText) { // 起動能力テキスト
-            allEffectTexts.push(card.activatedAbilityText);
-        }
-        if (card.onDeathEffectText) { // 破壊時効果テキスト
-            allEffectTexts.push(card.onDeathEffectText);
-        }
-        // 他にも表示したい効果テキストの種類があれば、ここに追加
-
-        const effectDescription = allEffectTexts.join('<br><hr class="effect-divider"><br>'); // 各効果テキストを区切り線と改行で連結
-
-        if (effectDescription) {
-            htmlContent += `<div class="card-effect">${effectDescription}</div>`;
-        }
-        // ▲▲▲ ここまで修正 ▲▲▲
-    }
-
-    cardDiv.innerHTML = htmlContent;
-    return cardDiv;
-}
-
-function openGraveyardModal() {
-    if (!uiElements.graveyardViewModal || !uiElements.graveyardCardsArea || !uiElements.graveyardModalCardCount) return;
-
-    uiElements.graveyardCardsArea.innerHTML = ''; // 表示前に中身をクリア
-    uiElements.graveyardModalCardCount.textContent = gameState.graveyard.length;
-
-    if (gameState.graveyard.length === 0) {
-        uiElements.graveyardCardsArea.textContent = "墓地は空です。";
-    } else {
-        gameState.graveyard.forEach(card => {
-            if (card && card.id) { // 有効なカードか確認
-                // createCardElementの第3引数isSummaryViewをtrueにして簡易表示
-                // 第4引数fieldCreatureObjectは墓地表示では不要なのでnull
-                const cardElement = createCardElement(card, card.hp, true, null); 
-
-                // 墓地のカードをクリックしたら詳細表示する機能（任意）
-                handleCardInteraction(cardElement, card,
-                    () => openCardDetailModal(card, card.hp), // シングルクリックで詳細表示
-                    () => {} // 長押しはとりあえず何もしない
-                );
-                uiElements.graveyardCardsArea.appendChild(cardElement);
-            }
-        });
-    }
-    uiElements.graveyardViewModal.style.display = 'flex';
-}
-
-function closeGraveyardModal() {
-    if (uiElements.graveyardViewModal) {
-        uiElements.graveyardViewModal.style.display = 'none';
-    }
-}
-
     function handleCardInteraction(cardElement, cardData, singleClickAction, longPressAction, currentHP = null) {
         let pressTimer = null;
         let isLongPressTriggered = false;
@@ -539,6 +485,33 @@ function closeGraveyardModal() {
 
     function closeCardDetailModal() {
         if (uiElements.cardDetailModal) uiElements.cardDetailModal.style.display = 'none';
+    }
+
+    function openGraveyardModal() {
+        if (!uiElements.graveyardViewModal || !uiElements.graveyardCardsArea || !uiElements.graveyardModalCardCount) return;
+        uiElements.graveyardCardsArea.innerHTML = ''; 
+        uiElements.graveyardModalCardCount.textContent = gameState.graveyard.length;
+        if (gameState.graveyard.length === 0) {
+            uiElements.graveyardCardsArea.textContent = "墓地は空です。";
+        } else {
+            gameState.graveyard.forEach(card => {
+                if (card && card.id) {
+                    const cardElement = createCardElement(card, card.hp, true, null); 
+                    handleCardInteraction(cardElement, card,
+                        () => openCardDetailModal(card, card.hp),
+                        () => {} 
+                    );
+                    uiElements.graveyardCardsArea.appendChild(cardElement);
+                }
+            });
+        }
+        uiElements.graveyardViewModal.style.display = 'flex';
+    }
+
+    function closeGraveyardModal() {
+        if (uiElements.graveyardViewModal) {
+            uiElements.graveyardViewModal.style.display = 'none';
+        }
     }
 
     function initializeDeckEditor() {
@@ -667,7 +640,7 @@ function closeGraveyardModal() {
 
         ['self', 'opponent'].forEach(playerType => {
             gameState[playerType].currentMana = 0;
-            gameState[playerType].maxMana = 0;
+            gameState[playerType].maxMana = 0; 
             gameState[playerType].deckMasters = [];
             gameState[playerType].hand = [];
             gameState[playerType].field = new Array(5).fill(null).map(() => null);
@@ -777,8 +750,7 @@ function closeGraveyardModal() {
     function updateUI() {
         if (!uiElements.mainDeckCardsCount) return;
         uiElements.mainDeckCardsCount.textContent = gameState.mainDeck.length;
-        if (uiElements.selfDeckCount) uiElements.selfDeckCount.textContent = gameState.mainDeck.length;
-        if (uiElements.opponentDeckCount) uiElements.opponentDeckCount.textContent = gameState.mainDeck.length;
+        if (uiElements.graveyardCount) uiElements.graveyardCount.textContent = gameState.graveyard.length;
         if (uiElements.selfCurrentMana) uiElements.selfCurrentMana.textContent = gameState.self.currentMana;
         if (uiElements.selfMaxMana) uiElements.selfMaxMana.textContent = gameState.self.maxMana;
         if (uiElements.opponentCurrentManaDisplay) uiElements.opponentCurrentManaDisplay.textContent = gameState.opponent.currentMana;
@@ -806,13 +778,8 @@ function closeGraveyardModal() {
                 const dmSlot = document.createElement('div');
                 dmSlot.classList.add('deck-master-slot'); dmSlot.dataset.slotIndex = i; dmSlot.dataset.owner = playerType;
                 const dmObject = gameState[playerType].deckMasters[i];
-
                 if (dmObject && dmObject.card && dmObject.card.id) {
                     let isConsideredDestroyed = (!dmObject.isSummoned && dmObject.currentHP <= 0);
-                    if (dmObject.isSummoned && dmObject.currentHP <= 0) {
-                        isConsideredDestroyed = true;
-                    }
-
                     if (isConsideredDestroyed) {
                         dmSlot.textContent = "破壊済"; dmSlot.style.color = '#555';
                     } else if (!dmObject.isSummoned && dmObject.currentHP > 0) {
@@ -821,23 +788,15 @@ function closeGraveyardModal() {
                         handleCardInteraction(dmElement, dmObject.card,
                             () => {
                                 if (playerType === 'self') {
-                                    if (gameState.awaitingSpellTarget &&
-                                        gameState.awaitingSpellTarget.player === 'self' &&
-                                        gameState.awaitingSpellTarget.effect && 
-                                        gameState.awaitingSpellTarget.effect.type === 'heal_deck_master_in_zone' &&
-                                        dmObject.currentHP < dmObject.card.hp) {
+                                    if (gameState.awaitingSpellTarget && gameState.awaitingSpellTarget.player === 'self' && gameState.awaitingSpellTarget.effect?.type === 'heal_deck_master_in_zone' && dmObject.currentHP < dmObject.card.hp) {
                                         const spellToResolve = gameState.awaitingSpellTarget.card;
                                         applyHealDeckMasterInZoneEffect(dmObject, spellToResolve.effect.value);
                                         applySpellTargetAndCleanUp(spellToResolve, dmObject, playerType, i);
                                     } else if (!gameState.awaitingSpellTarget) {
                                         handleDeckMasterClick(dmObject.card.id, i);
                                     }
-                                } else { 
-                                    if (gameState.currentPlayer === 'self' && gameState.awaitingSpellTarget && 
-                                        gameState.awaitingSpellTarget.player === 'self' &&
-                                        gameState.awaitingSpellTarget.effect &&
-                                        gameState.awaitingSpellTarget.effect.targetOwner === 'opponent' &&
-                                        gameState.awaitingSpellTarget.effect.targetCategory === 'deck_master_in_zone') {
+                                } else {
+                                    if (gameState.currentPlayer === 'self' && gameState.awaitingSpellTarget && gameState.awaitingSpellTarget.player === 'self' && gameState.awaitingSpellTarget.effect?.targetOwner === 'opponent' && gameState.awaitingSpellTarget.effect.targetCategory === 'deck_master_in_zone') {
                                         applySpellTargetAndCleanUp(gameState.awaitingSpellTarget.card, dmObject, 'opponent', i);
                                     } else if (gameState.currentPlayer === 'self' && gameState.currentPhase === 'attack' && gameState.selectedAttacker) {
                                         handleTargetClick(dmObject.card.id, i, 'deckMaster', 'opponent');
@@ -866,7 +825,7 @@ function closeGraveyardModal() {
         if (!coreMachinaFieldObject) return;
         const otherAutomataCount = playerState.field.filter(c => c && c.card.id !== 'DM_A01' && c.card.subtype === 'オートマタ').length;
         const coreMachinaBaseData = cardData.find(c => c.id === 'DM_A01');
-        if (!coreMachinaBaseData || !coreMachinaBaseData.onSummonEffect || !coreMachinaBaseData.onSummonEffect.awaken_condition) {
+        if (!coreMachinaBaseData?.onSummonEffect?.awaken_condition) {
             console.error("Core Machina base data or awaken condition missing for awakening check.");
             return;
         }
@@ -893,7 +852,7 @@ function closeGraveyardModal() {
             cardItemWrapper.classList.add('hand-card-item');
             const cardElement = createCardElement(card, card.hp, true);
             handleCardInteraction(cardElement, card,
-                () => { /* Empty as button handles play */ },
+                () => {},
                 (cData, _hp) => openCardDetailModal(cData, _hp)
             );
             const playButtonForHandCard = document.createElement('button');
@@ -907,56 +866,48 @@ function closeGraveyardModal() {
     }
 
     function renderField() {
-    ['self', 'opponent'].forEach(playerType => {
-        const zone = playerType === 'self' ? uiElements.selfFieldZone : uiElements.opponentFieldZone;
-        if (!zone) {
-            console.error(`${playerType} field zone not found!`);
-            return;
-        }
-        zone.innerHTML = '';
-        for (let i = 0; i < 5; i++) {
-            const slot = document.createElement('div');
-            slot.classList.add('field-slot');
-            slot.dataset.slotIndex = i;
-            slot.dataset.owner = playerType;
-
-            // ★追加: エフェクト表示用の要素を各スロットに予め追加しておく
-            const effectOverlay = document.createElement('div');
-            effectOverlay.classList.add('summon-effect-overlay');
-            slot.appendChild(effectOverlay);
-            // ★ここまで追加
-
-            const creatureInSlot = gameState[playerType].field[i];
-            if (creatureInSlot && creatureInSlot.card && creatureInSlot.card.id) {
-                // createCardElementの第4引数に creatureInSlot (fieldObject) を渡す
-                const cardElement = createCardElement(creatureInSlot.card, creatureInSlot.currentHP, true, creatureInSlot);
-                if (creatureInSlot.hasAttacked) cardElement.classList.add('has-attacked');
+        ['self', 'opponent'].forEach(playerType => {
+            const zone = playerType === 'self' ? uiElements.selfFieldZone : uiElements.opponentFieldZone;
+            if (!zone) return; zone.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                const slot = document.createElement('div');
+                slot.classList.add('field-slot');
+                slot.dataset.slotIndex = i;
+                slot.dataset.owner = playerType;
                 
-                handleCardInteraction(cardElement, creatureInSlot.card,
-                    () => { // singleClickAction
-                        if (playerType === 'self') {
-                            handleFieldCreatureClick(creatureInSlot.card.id, i, 'self');
-                        } else {
-                            const currentSpellTargetInfo = gameState.awaitingSpellTarget;
-                            if (gameState.currentPlayer === 'self' && currentSpellTargetInfo && currentSpellTargetInfo.player === 'self' &&
-                                currentSpellTargetInfo.effect && currentSpellTargetInfo.effect.targetOwner === 'opponent' &&
-                                currentSpellTargetInfo.effect.targetCategory === 'creature') {
-                                applySpellTargetAndCleanUp(currentSpellTargetInfo.card, creatureInSlot, 'opponent', i);
-                            } else if (gameState.currentPlayer === 'self' && gameState.currentPhase === 'attack' && gameState.selectedAttacker) {
-                                handleTargetClick(creatureInSlot.card.id, i, 'creature', 'opponent');
+                const effectOverlay = document.createElement('div');
+                effectOverlay.classList.add('summon-effect-overlay');
+                slot.appendChild(effectOverlay);
+                
+                const creatureInSlot = gameState[playerType].field[i];
+                if (creatureInSlot && creatureInSlot.card && creatureInSlot.card.id) {
+                    const cardElement = createCardElement(creatureInSlot.card, creatureInSlot.currentHP, true, creatureInSlot); 
+                    if (creatureInSlot.hasAttacked) cardElement.classList.add('has-attacked');
+                    handleCardInteraction(cardElement, creatureInSlot.card, 
+                        () => { 
+                            if (playerType === 'self') {
+                                handleFieldCreatureClick(creatureInSlot.card.id, i, 'self');
+                            } else { 
+                                const currentSpellTargetInfo = gameState.awaitingSpellTarget;
+                                if (gameState.currentPlayer === 'self' && currentSpellTargetInfo && currentSpellTargetInfo.player === 'self' &&
+                                    currentSpellTargetInfo.effect && currentSpellTargetInfo.effect.targetOwner === 'opponent' &&
+                                    currentSpellTargetInfo.effect.targetCategory === 'creature') {
+                                    applySpellTargetAndCleanUp(currentSpellTargetInfo.card, creatureInSlot, 'opponent', i);
+                                } else if (gameState.currentPlayer === 'self' && gameState.currentPhase === 'attack' && gameState.selectedAttacker) {
+                                    handleTargetClick(creatureInSlot.card.id, i, 'creature', 'opponent');
+                                }
                             }
-                        }
-                    },
-                    (cardForModal, hp) => openCardDetailModal(creatureInSlot.card, hp), // longPressAction
-                    creatureInSlot.currentHP
-                );
-                slot.appendChild(cardElement); // カード要素はエフェクト要素の後に追加
+                        },
+                        (cardForModal, hp) => openCardDetailModal(creatureInSlot.card, hp),
+                        creatureInSlot.currentHP
+                    );
+                    slot.appendChild(cardElement);
+                }
+                zone.appendChild(slot);
             }
-            zone.appendChild(slot);
-        }
-    });
-}
-    
+        });
+    }
+
     function applySpellTargetAndCleanUp(spellCard, targetObject, targetOwner, targetSlotIndex) {
         const currentTargetInfo = gameState.awaitingSpellTarget;
         const effectToApply = currentTargetInfo?.effect || spellCard?.effect; 
