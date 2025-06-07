@@ -118,3 +118,36 @@ module.exports = {
     calculateDirectCombatDamage, // 念のため残す
     resolveCombatRound
 };
+
+
+// gameLogic.js に以下の関数を追加してください
+
+/**
+ * 見習い詠唱者の成長効果を適用する（カウンターを増やす）
+ * @param {object} creatureFieldObject - フィールド上のクリーチャーオブジェクト { card: object, powerCounters: number, ... }
+ * @returns {object} - 更新されたクリーチャーオブジェクト（カウンターが増加している場合）
+ */
+function applyApprenticeChanterGrowth(creatureFieldObject) {
+    if (!creatureFieldObject || !creatureFieldObject.card) {
+        console.error("applyApprenticeChanterGrowth: 無効なクリーチャーオブジェクトです。");
+        return creatureFieldObject; // 元のオブジェクトをそのまま返す
+    }
+
+    // 見習い詠唱者(C_E01)で、かつpowerCountersプロパティがある場合のみ処理
+    if (creatureFieldObject.card.id === 'C_E01' && typeof creatureFieldObject.powerCounters === 'number') {
+        const updatedCreature = { ...creatureFieldObject }; // オブジェクトをコピーして変更
+        updatedCreature.powerCounters += 1;
+        console.log(`gameLogic: ${updatedCreature.card.name} counter increased to ${updatedCreature.powerCounters}`);
+        return updatedCreature;
+    }
+    return creatureFieldObject; // 対象外なら元のオブジェクトをそのまま返す
+}
+
+// module.exports に新しい関数を追加するのを忘れないでください
+module.exports = {
+    drawOneCard,
+    calculateDirectCombatDamage, // これは以前のテスト用
+    resolveCombatRound,
+    applyApprenticeChanterGrowth // ← ★この行が追加されているか確認！
+    // 他にもエクスポートする関数があればカンマで続ける
+};

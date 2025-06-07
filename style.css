@@ -319,3 +319,217 @@ body, html {
 }
 
 
+/* style.css の末尾などに追加 */
+.effect-divider {
+    border: none;
+    border-top: 1px dashed #888; /* 点線の下線 */
+    margin: 5px 0; /* 上下の余白 */
+}
+
+/* style.css に追加 */
+
+/* 墓地表示エリアのクリック可能な見た目（任意） */
+#graveyard-display-area.clickable-zone {
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 3px;
+}
+#graveyard-display-area.clickable-zone:hover {
+    background-color: #444;
+}
+
+/* 墓地確認モーダルのカードリストエリア */
+#graveyard-cards-area {
+    display: flex;
+    flex-wrap: wrap; /* カードを折り返して表示 */
+    gap: 10px; /* カード間の隙間 */
+    padding: 10px;
+    overflow-y: auto; /* カードが多い場合にスクロール可能にする */
+    max-height: 70vh; /* モーダルの高さに応じて調整 */
+    justify-content: center; /* カードを中央揃えにする */
+}
+
+/* モーダルウィンドウのサイズを少し大きくするためのクラス（任意） */
+.modal-content.large-modal {
+    width: 80%; /* 幅を広げる */
+    max-width: 1000px; /* 最大幅も設定 */
+}
+
+/* 墓地モーダル内のカードのスタイル調整（任意） */
+#graveyard-cards-area .card-placeholder {
+    width: 100px; /* カードの幅を少し小さめに */
+    font-size: 0.8em; /* 文字も少し小さめに */
+    /* 必要に応じて他のスタイルも調整 */
+}
+#graveyard-cards-area .card-placeholder .card-stats {
+    font-size: 0.9em;
+}
+
+/* --- サイドバーのレイアウト修正 --- */
+
+/* サイドバー全体をFlexboxコンテナにする */
+.sidebar-column {
+    display: flex;
+    flex-direction: column; /* 要素を上から下に並べる */
+    height: 100%; /* 親要素の高さいっぱいに広がるようにする */
+}
+
+/* 中央のゲーム情報エリア（ボタンなどがある部分）を伸縮させる */
+.sidebar-game-info {
+    flex-grow: 1; /* ★これが一番重要。残りのスペースを全て埋めるように伸びる */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* 中身を垂直方向の中央に配置 */
+}
+
+/* 上下のプレイヤー情報パネルのサイズを固定する */
+.player-info-panel, .sidebar-footer-controls {
+    flex-shrink: 0; /* スペースが足りなくても縮まないようにする */
+}
+
+
+
+/* --- 新しいUIレイアウトのためのCSS --- */
+
+/* ゲームコンテナ全体を、UIオーバーレイの基準点にする */
+.game-container {
+    position: relative;
+    overflow: hidden; /* はみ出した要素を隠す */
+}
+
+/* UIオーバーレイ：盤面の上に重なる層 */
+.ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* 下の盤面をクリックできるように、通常はクリックイベントを無効化 */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* 上下や中央に要素を配置しやすくする */
+    padding: 15px;
+    box-sizing: border-box; /* paddingを含めてサイズ計算 */
+}
+
+/* UIオーバーレイ内のクリック可能な要素は、クリックを有効にする */
+.ui-overlay > * {
+    pointer-events: auto;
+}
+
+/* プレイヤー情報表示の基本スタイル */
+.player-hud {
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #555;
+    color: white;
+    width: 200px;
+}
+
+/* 相手プレイヤー情報HUDを左上に配置 */
+/* --- 新しいUIレイアウトのためのCSS (修正版) --- */
+/* ★ 以下の3つのルールを書き換えてください ★ */
+
+/* 相手プレイヤー情報HUDを「右上」に配置 */
+.opponent-hud {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    left: auto; /* leftの指定を解除 */
+}
+
+/* 自分プレイヤー情報HUD (これは変更なし、右下のまま) */
+.self-hud {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+}
+
+/* 山札と墓地HUDを「自分プレイヤー情報HUDの左隣」に配置 */
+.deck-info-hud {
+    position: absolute;
+    bottom: 15px; /* 高さを自分プレイヤー情報と合わせる */
+    right: 240px; /* 右からの距離を指定して、右下のパネルの左に配置 */
+    left: auto;   /* left: 15px; の指定を解除 */
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #555;
+    color: white;
+}
+
+/* ターン情報とアクションボタンHUDを「山札と墓地HUDの上」に配置 */
+.phase-hud {
+    position: absolute;
+    bottom: 245px; /* さらに位置を調整 */
+    right: 15px;
+    /* top, transform, bottom(150px) は削除 */
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #555;
+    color: white;
+    text-align: center;
+}
+
+/* ターン情報とアクションボタンHUDを右側中央に配置 */
+.phase-hud {
+    position: absolute;
+    bottom: 150px; /* 自分プレイヤー情報HUDの上あたりに来るように調整 */
+    right: 15px;
+    /* top と transform は削除します */
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #555;
+    color: white;
+    text-align: center;
+}
+
+.phase-hud .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* ボタン間の隙間 */
+    margin-top: 15px;
+}
+
+/* ターン終了ボタンを大きく、目立つようにする */
+.action-button.large-button {
+    padding: 15px 20px;
+    font-size: 1.2em;
+    font-weight: bold;
+    background-color: #c0392b; /* 目立つ色 */
+    border-color: #a03024;
+}
+.action-button.large-button:hover {
+    background-color: #e74c3c;
+}
+
+/* ゲーム終了時のボタンを中央下に配置 */
+.game-over-controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.summon-effect-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: yellow;
+    border-radius: 8px;
+    opacity: 0;
+    pointer-events: none; /* クリックを邪魔しないように */
+}
+
+.summon-effect-overlay.active {
+    animation: summon-flash 0.5s ease-out;
+}
+
+@keyframes summon-flash {
+    0% { opacity: 0.7; transform: scale(0.8); }
+    50% { opacity: 0.3; transform: scale(1.1); }
+    100% { opacity: 0; transform: scale(1); }
+}

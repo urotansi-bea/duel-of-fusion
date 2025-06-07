@@ -16,73 +16,65 @@
     </div>
 
     <div class="game-container" style="display: none;">
-        <div class="main-play-column"> 
-            <div class="player-zone opponent-dm-zone"> 
-                <div class="deck-masters-zone opponent-deck-masters-zone">
-                  
-                </div>
+
+        <div class="main-board">
+            <div class="player-zone opponent-dm-zone">
+                <div class="deck-masters-zone opponent-deck-masters-zone"></div>
             </div>
-            <div class="player-zone opponent-field-zone-wrapper"> 
-                <div class="field-zone opponent-field-zone">
-             
-                </div>
+            <div class="player-zone opponent-field-zone-wrapper">
+                <div class="field-zone opponent-field-zone"></div>
             </div>
-            <div class="battlefield-divider"></div> 
-            <div class="player-zone self-field-zone-wrapper"> 
-                <div class="field-zone self-field-zone">
-              
-                </div>
+            <div class="battlefield-divider"></div>
+            <div class="player-zone self-field-zone-wrapper">
+                <div class="field-zone self-field-zone"></div>
             </div>
-            <div class="player-zone self-dm-zone"> 
-                <div class="deck-masters-zone self-deck-masters-zone">
-                
-                </div>
+            <div class="player-zone self-dm-zone">
+                <div class="deck-masters-zone self-deck-masters-zone"></div>
             </div>
-            <div class="player-zone self-hand-display-area"> 
-                <div class="hand-zone self-hand-zone">
-                
-                </div>
+            <div class="player-zone self-hand-display-area">
+                <div class="hand-zone self-hand-zone"></div>
             </div>
         </div>
 
-        <div class="sidebar-column"> 
-            <div class="sidebar-opponent-info player-info-panel">
+        <div class="ui-overlay">
+            <div class="player-hud opponent-hud">
                 <h4>相手プレイヤー</h4>
                 <div>マナ: <span id="opponent-current-mana">0</span>/<span id="opponent-max-mana">1</span></div>
                 <div>手札: <span id="opponent-hand-count">0</span>枚</div>
-                <div>山札: <span id="opponent-deck-count">0</span>枚</div> 
                 <div>破壊DM: <span id="opponent-destroyed-dms-count">0</span>/5</div>
             </div>
 
-            <div class="sidebar-game-info">
+            <div class="player-hud self-hud">
+                <h4>自分プレイヤー</h4>
+                <div>マナ: <span id="self-current-mana">0</span>/<span id="self-max-mana">1</span></div>
+                <div>手札: <span id="self-hand-count">0</span>枚</div>
+                <div>破壊DM: <span id="self-destroyed-dms-count">0</span>/5</div>
+            </div>
+
+            <div class="deck-info-hud">
                 <div class="main-deck-display">山札: <span id="main-deck-cards-count">60</span></div>
-                <div class="graveyard-display">墓地</div>
-                <hr>
+                <div id="graveyard-display-area" class="graveyard-display clickable-zone" title="墓地を確認する">
+                    墓地: <span id="graveyard-count">0</span>枚
+                </div>
+            </div>
+
+            <div class="phase-hud">
                 <div>ターン: <span id="turn-count">1</span></div>
                 <div><span id="current-turn-player">あなた</span> のターン</div>
                 <div>フェーズ: <span id="current-phase">ドロー</span></div>
                 <hr>
                 <div class="action-buttons">
                     <button id="draw-button" class="action-button">ドロー</button>
-                    <div class="sub-action-buttons">
-                        <button id="attack-button" class="action-button">攻撃</button>
-                        <button id="end-turn-button" class="action-button">ターン終了</button>
-                    </div>
+                    <button id="attack-button" class="action-button">攻撃フェーズへ</button>
+                    <button id="end-turn-button" class="action-button large-button">ターン終了</button>
                 </div>
             </div>
-
-            <div class="sidebar-self-info player-info-panel">
-                <h4>自分プレイヤー</h4>
-                <div>マナ: <span id="self-current-mana">0</span>/<span id="self-max-mana">1</span></div>
-                <div>手札: <span id="self-hand-count">0</span>枚</div>
-                <div>山札: <span id="self-deck-count">0</span>枚</div> 
-                <div>破壊DM: <span id="self-destroyed-dms-count">0</span>/5</div>
-            </div>
-
-            <div class="sidebar-footer-controls">
+            
+            <div class="game-over-controls">
                  <button id="reset-game-button" style="display: none;">もう一度遊ぶ</button>
             </div>
         </div>
+
     </div>
 
     <div id="deck-editor-screen" style="display: none;">
@@ -126,6 +118,15 @@
         <div class="modal-content">
             <span class="modal-close-button" id="modal-close-button">&times;</span>
             <div id="modal-card-detail-area"></div>
+        </div>
+    </div>
+
+    <div id="graveyard-view-modal" class="modal" style="display:none;">
+        <div class="modal-content large-modal">
+            <span class="modal-close-button" id="graveyard-modal-close-button">&times;</span>
+            <h2>墓地 (<span id="graveyard-modal-card-count">0</span>枚)</h2>
+            <div id="graveyard-cards-area" class="modal-cards-list">
+                </div>
         </div>
     </div>
 
