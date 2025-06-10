@@ -1,15 +1,19 @@
-// script.js (完全版 - 2025-06-01 時点での最終確認・整理版、gameRulesText修正適用)
+// script.js (完全版 - 2025-06-02 時点での最終修正版)
 
-// カードデータ定義
+// =================================================================
+// グローバル定義セクション
+// =================================================================
+
+// --- カードデータ定義 ---
 const cardData = [
     // オリジナルカード
     { id: "C001", type: "creature", name: "森の番人", manaCost: 2, atk: 2, hp: 3, abilities: [] },
     { id: "C002", type: "creature", name: "炎の獣", manaCost: 3, atk: 3, hp: 2, abilities: [] },
     { id: "C003", type: "creature", name: "鋼の守護者", manaCost: 4, atk: 2, hp: 5, abilities: ["ブロック"] },
-    { id: "C004", type: "creature", name: "風の妖精", manaCost: 1, atk: 1, hp: 1, abilities: [] }, // 飛行は一旦削除
+    { id: "C004", type: "creature", name: "風の妖精", manaCost: 1, atk: 1, hp: 1, abilities: [] },
     { id: "C005", type: "creature", name: "大地の巨人", manaCost: 5, atk: 4, hp: 4, abilities: [] },
     { id: "C008", type: "creature", name: "超伝導ロボ", manaCost: 7, atk: 3, hp: 15, abilities: [] },
-    { id: "C006", type: "creature", name: "俊足の斥候", manaCost: 1, atk: 1, hp: 1, abilities: [] }, // 速攻は一旦削除
+    { id: "C006", type: "creature", name: "俊足の斥候", manaCost: 1, atk: 1, hp: 1, abilities: [] },
     { id: "C007", type: "creature", name: "岩窟のトロール", manaCost: 4, atk: 3, hp: 5, abilities: ["再生"] },
     { id: "C009", type: "creature", name: "飛行布団", manaCost: 2, atk: 1, hp: 4, abilities: [] },
     { id: "C010", type: "creature", name: "アルミ缶みかん", manaCost: 3, atk: 2, hp: 5, abilities: [] },
@@ -157,17 +161,17 @@ const gameState = {
     self: {
         currentMana: 0, maxMana: 1, deckMasters: [], hand: [], field: new Array(5).fill(null),
         destroyedDeckMastersCount: 0, spellsCastThisTurn: 0, solarisAbilityUsedThisTurn: false,
-        nextSpellCostReduction: 0, licheAbilityUsedThisTurn: false
+        nextSpellCostReduction: 0, licheAbilityUsedThisTurn: false, graveyard: []
     },
     opponent: {
         currentMana: 0, maxMana: 1, deckMasters: [], hand: [], field: new Array(5).fill(null),
         destroyedDeckMastersCount: 0, spellsCastThisTurn: 0, solarisAbilityUsedThisTurn: false,
-        nextSpellCostReduction: 0, licheAbilityUsedThisTurn: false
+        nextSpellCostReduction: 0, licheAbilityUsedThisTurn: false, graveyard: []
     },
-    mainDeck: [], graveyard: [], pendingSolarisEffect: null
+    mainDeck: [], pendingSolarisEffect: null
 };
 
-// ★★★ ここからが gameRulesText の正しい定義です ★★★
+// --- ここで`gameRulesText`の定義が正しく閉じられます ---
 const gameRulesText = `
 デュエル・オブ・フュージョン ルール詳細案（最終調整版）
 
@@ -246,17 +250,11 @@ const gameRulesText = `
 7. 敗北条件
     自分の場に残っているデッキマスター5枚すべてが破壊される。
     ドローフェーズで自分のデッキが0枚の場合。
-`; // ★★★ ここで gameRulesText の文字列が正しく閉じられます ★★★
-
-// ユーティリティ関数
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-}
+`;
 
 document.addEventListener('DOMContentLoaded', () => {
+
+    // --- 主要な定数とグローバル変数 ---
     const MAX_DECK_SIZE = 30;
     const MAX_COPIES_PER_CARD = 3;
     const MAX_DECK_MASTERS = 5;
@@ -265,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEditingDeck = [];
     let currentEditingDMs = [];
 
+    // --- UI要素のキャッシュ ---
     const uiElements = {
         startScreen: document.getElementById('start-screen'),
         startGameButton: document.getElementById('start-game-button'),
@@ -277,8 +276,8 @@ document.addEventListener('DOMContentLoaded', () => {
         selfFieldZone: document.querySelector('.self-field-zone'),
         opponentFieldZone: document.querySelector('.opponent-field-zone'),
         mainDeckCardsCount: document.getElementById('main-deck-cards-count'),
-        opponentDeckCount: document.getElementById('opponent-deck-count'),
-        selfDeckCount: document.getElementById('self-deck-count'),
+        graveyardDisplayArea: document.getElementById('graveyard-display-area'),
+        graveyardCount: document.getElementById('graveyard-count'),
         selfCurrentMana: document.getElementById('self-current-mana'),
         selfMaxMana: document.getElementById('self-max-mana'),
         opponentCurrentManaDisplay: document.getElementById('opponent-current-mana'),
@@ -310,11 +309,24 @@ document.addEventListener('DOMContentLoaded', () => {
         closeRulesButton: document.getElementById('close-rules-button'),
         cardDetailModal: document.getElementById('card-detail-modal'),
         modalCardDetailArea: document.getElementById('modal-card-detail-area'),
-        modalCloseButton: document.getElementById('modal-close-button')
+        modalCloseButton: document.getElementById('modal-close-button'),
+        graveyardViewModal: document.getElementById('graveyard-view-modal'),
+        graveyardModalCloseButton: document.getElementById('graveyard-modal-close-button'),
+        graveyardCardsArea: document.getElementById('graveyard-cards-area'),
+        graveyardModalCardCount: document.getElementById('graveyard-modal-card-count')
     };
 
-    // --- ここから関数定義 (DOMContentLoaded の内側) ---
-    function drawCardToHand(playerType) {
+    // --- ここから関数定義 ---
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }  
+  
+  
+  function drawCardToHand(playerType) {
         const player = gameState[playerType];
         if (!player || !Array.isArray(player.hand)) {
             console.error(`${playerType} hand is not an array.`);
@@ -336,6 +348,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    function showSummonEffect(playerType, slotIndex) {
+        const slotElement = document.querySelector(`.${playerType}-field-zone .field-slot[data-slot-index="${slotIndex}"]`);
+        if (slotElement) {
+            const effectElement = slotElement.querySelector('.summon-effect-overlay');
+            if (effectElement) {
+                effectElement.classList.remove('active');
+                void effectElement.offsetWidth;
+                effectElement.classList.add('active');
+                setTimeout(() => {
+                    if (effectElement) {
+                        effectElement.classList.remove('active');
+                    }
+                }, 500);
+            }
+        }
+    }
+
     function createCardElement(card, currentHP = null, isSummaryView = false, fieldCreatureObject = null) {
         const cardDiv = document.createElement('div');
         cardDiv.classList.add('card-placeholder');
@@ -343,7 +372,6 @@ document.addEventListener('DOMContentLoaded', () => {
             cardDiv.innerHTML = '---';
             return cardDiv;
         }
-
         cardDiv.dataset.cardId = card.id;
         cardDiv.dataset.cardType = card.type;
         if (isSummaryView) cardDiv.classList.add('summary-view');
@@ -351,24 +379,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let displayATK = card.atk !== undefined ? card.atk : '-';
         let displayHP = (currentHP !== null) ? currentHP : (card.hp !== undefined ? card.hp : '-');
         
-        // 魂集めのワイト(C_N02)のATK計算
         if (card.id === 'C_N02') {
             let ownerForGraveyardCheck = null;
             if (fieldCreatureObject) { 
                 if (gameState.self.field.includes(fieldCreatureObject)) ownerForGraveyardCheck = 'self';
                 else if (gameState.opponent.field.includes(fieldCreatureObject)) ownerForGraveyardCheck = 'opponent';
-            } else if (uiElements.deckEditorScreen.style.display !== 'none' || (gameState.currentPlayer === 'self' && gameState.self.hand.find(hCard => hCard.id === card.id))) {
-                 // デッキ編集画面、または自分の手札のワイトの場合、便宜上自分の墓地を参照（あるいは表示専用ATKとしてベース値を出す）
-                 // ここではゲーム中の表示を優先し、自分の墓地を見ることにする
+            } else if (uiElements.deckEditorScreen.style.display !== 'none' || (gameState.self && gameState.self.hand.find(hCard => hCard.id === card.id))) {
                  ownerForGraveyardCheck = 'self';
             }
-            // 相手の手札のワイトのATKを知る術はないので、ここでは考慮しない
             
             if (ownerForGraveyardCheck && gameState[ownerForGraveyardCheck] && Array.isArray(gameState[ownerForGraveyardCheck].graveyard)) {
                 const creatureCardsInGraveyard = gameState[ownerForGraveyardCheck].graveyard.filter(c => c.type === 'creature' || c.type === 'deck_master').length;
                 displayATK = (card.atk || 0) + creatureCardsInGraveyard;
             } else {
-                // 参照できる墓地がない場合は基本ATK
                 displayATK = card.atk || 0; 
             }
         }
@@ -385,14 +408,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayATK = coreMachinaBaseData.onSummonEffect.awakened_stats.atk;
              }
         }
-
         const cardTitle = card.subtype ? `${card.name} <span class="card-subtype">[${card.subtype}]</span>` : card.name;
         let htmlContent = `<div class="card-name">${cardTitle}</div>`;
-
         if (card.hasOwnProperty('manaCost') && card.type !== 'magic_square') {
             htmlContent += `<div class="card-cost">マナ:${card.manaCost}</div>`;
         }
-
         if (card.type === 'creature' || card.type === 'deck_master') {
             cardDiv.classList.add('creature-card');
             if (card.type === 'deck_master') {
@@ -407,20 +427,25 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (card.type === 'magic_square') {
             cardDiv.classList.add('magic-square-card');
         }
-
         if (!isSummaryView) {
             let abilitiesText = card.abilities ? card.abilities.join(', ') : '';
             htmlContent += `<div class="card-abilities">${abilitiesText}</div>`;
-            const effectDescription = card.effectText || card.onSummonEffectText || '';
+            let allEffectTexts = [];
+            if (card.effectText) allEffectTexts.push(card.effectText);
+            if (card.onSummonEffectText) allEffectTexts.push(card.onSummonEffectText);
+            if (card.activatedAbilityText) allEffectTexts.push(card.activatedAbilityText);
+            if (card.onDeathEffectText) allEffectTexts.push(card.onDeathEffectText);
+            const effectDescription = allEffectTexts.join('<br><hr class="effect-divider"><br>');
             if (effectDescription) {
                 htmlContent += `<div class="card-effect">${effectDescription}</div>`;
             }
         }
-
         cardDiv.innerHTML = htmlContent;
         return cardDiv;
     }
-
+    
+ 
+    
     function handleCardInteraction(cardElement, cardData, singleClickAction, longPressAction, currentHP = null) {
         let pressTimer = null;
         let isLongPressTriggered = false;
@@ -462,6 +487,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function closeCardDetailModal() {
         if (uiElements.cardDetailModal) uiElements.cardDetailModal.style.display = 'none';
+    }
+
+    function openGraveyardModal() {
+        if (!uiElements.graveyardViewModal || !uiElements.graveyardCardsArea || !uiElements.graveyardModalCardCount) return;
+        uiElements.graveyardCardsArea.innerHTML = ''; 
+        uiElements.graveyardModalCardCount.textContent = gameState.graveyard.length;
+        if (gameState.graveyard.length === 0) {
+            uiElements.graveyardCardsArea.textContent = "墓地は空です。";
+        } else {
+            gameState.graveyard.forEach(card => {
+                if (card && card.id) {
+                    const cardElement = createCardElement(card, card.hp, true, null); 
+                    handleCardInteraction(cardElement, card,
+                        () => openCardDetailModal(card, card.hp),
+                        () => {} 
+                    );
+                    uiElements.graveyardCardsArea.appendChild(cardElement);
+                }
+            });
+        }
+        uiElements.graveyardViewModal.style.display = 'flex';
+    }
+
+    function closeGraveyardModal() {
+        if (uiElements.graveyardViewModal) {
+            uiElements.graveyardViewModal.style.display = 'none';
+        }
     }
 
     function initializeDeckEditor() {
@@ -590,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         ['self', 'opponent'].forEach(playerType => {
             gameState[playerType].currentMana = 0;
-            gameState[playerType].maxMana = 0;
+            gameState[playerType].maxMana = 0; 
             gameState[playerType].deckMasters = [];
             gameState[playerType].hand = [];
             gameState[playerType].field = new Array(5).fill(null).map(() => null);
@@ -700,8 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUI() {
         if (!uiElements.mainDeckCardsCount) return;
         uiElements.mainDeckCardsCount.textContent = gameState.mainDeck.length;
-        if (uiElements.selfDeckCount) uiElements.selfDeckCount.textContent = gameState.mainDeck.length;
-        if (uiElements.opponentDeckCount) uiElements.opponentDeckCount.textContent = gameState.mainDeck.length;
+        if (uiElements.graveyardCount) uiElements.graveyardCount.textContent = gameState.graveyard.length;
         if (uiElements.selfCurrentMana) uiElements.selfCurrentMana.textContent = gameState.self.currentMana;
         if (uiElements.selfMaxMana) uiElements.selfMaxMana.textContent = gameState.self.maxMana;
         if (uiElements.opponentCurrentManaDisplay) uiElements.opponentCurrentManaDisplay.textContent = gameState.opponent.currentMana;
@@ -729,13 +780,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dmSlot = document.createElement('div');
                 dmSlot.classList.add('deck-master-slot'); dmSlot.dataset.slotIndex = i; dmSlot.dataset.owner = playerType;
                 const dmObject = gameState[playerType].deckMasters[i];
-
                 if (dmObject && dmObject.card && dmObject.card.id) {
                     let isConsideredDestroyed = (!dmObject.isSummoned && dmObject.currentHP <= 0);
-                    if (dmObject.isSummoned && dmObject.currentHP <= 0) {
-                        isConsideredDestroyed = true;
-                    }
-
                     if (isConsideredDestroyed) {
                         dmSlot.textContent = "破壊済"; dmSlot.style.color = '#555';
                     } else if (!dmObject.isSummoned && dmObject.currentHP > 0) {
@@ -744,23 +790,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         handleCardInteraction(dmElement, dmObject.card,
                             () => {
                                 if (playerType === 'self') {
-                                    if (gameState.awaitingSpellTarget &&
-                                        gameState.awaitingSpellTarget.player === 'self' &&
-                                        gameState.awaitingSpellTarget.effect && 
-                                        gameState.awaitingSpellTarget.effect.type === 'heal_deck_master_in_zone' &&
-                                        dmObject.currentHP < dmObject.card.hp) {
+                                    if (gameState.awaitingSpellTarget && gameState.awaitingSpellTarget.player === 'self' && gameState.awaitingSpellTarget.effect?.type === 'heal_deck_master_in_zone' && dmObject.currentHP < dmObject.card.hp) {
                                         const spellToResolve = gameState.awaitingSpellTarget.card;
                                         applyHealDeckMasterInZoneEffect(dmObject, spellToResolve.effect.value);
                                         applySpellTargetAndCleanUp(spellToResolve, dmObject, playerType, i);
                                     } else if (!gameState.awaitingSpellTarget) {
                                         handleDeckMasterClick(dmObject.card.id, i);
                                     }
-                                } else { 
-                                    if (gameState.currentPlayer === 'self' && gameState.awaitingSpellTarget && 
-                                        gameState.awaitingSpellTarget.player === 'self' &&
-                                        gameState.awaitingSpellTarget.effect &&
-                                        gameState.awaitingSpellTarget.effect.targetOwner === 'opponent' &&
-                                        gameState.awaitingSpellTarget.effect.targetCategory === 'deck_master_in_zone') {
+                                } else {
+                                    if (gameState.currentPlayer === 'self' && gameState.awaitingSpellTarget && gameState.awaitingSpellTarget.player === 'self' && gameState.awaitingSpellTarget.effect?.targetOwner === 'opponent' && gameState.awaitingSpellTarget.effect.targetCategory === 'deck_master_in_zone') {
                                         applySpellTargetAndCleanUp(gameState.awaitingSpellTarget.card, dmObject, 'opponent', i);
                                     } else if (gameState.currentPlayer === 'self' && gameState.currentPhase === 'attack' && gameState.selectedAttacker) {
                                         handleTargetClick(dmObject.card.id, i, 'deckMaster', 'opponent');
@@ -789,7 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!coreMachinaFieldObject) return;
         const otherAutomataCount = playerState.field.filter(c => c && c.card.id !== 'DM_A01' && c.card.subtype === 'オートマタ').length;
         const coreMachinaBaseData = cardData.find(c => c.id === 'DM_A01');
-        if (!coreMachinaBaseData || !coreMachinaBaseData.onSummonEffect || !coreMachinaBaseData.onSummonEffect.awaken_condition) {
+        if (!coreMachinaBaseData?.onSummonEffect?.awaken_condition) {
             console.error("Core Machina base data or awaken condition missing for awakening check.");
             return;
         }
@@ -816,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cardItemWrapper.classList.add('hand-card-item');
             const cardElement = createCardElement(card, card.hp, true);
             handleCardInteraction(cardElement, card,
-                () => { /* Empty as button handles play */ },
+                () => {},
                 (cData, _hp) => openCardDetailModal(cData, _hp)
             );
             const playButtonForHandCard = document.createElement('button');
@@ -835,7 +873,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!zone) return; zone.innerHTML = '';
             for (let i = 0; i < 5; i++) {
                 const slot = document.createElement('div');
-                slot.classList.add('field-slot'); slot.dataset.slotIndex = i; slot.dataset.owner = playerType;
+                slot.classList.add('field-slot');
+                slot.dataset.slotIndex = i;
+                slot.dataset.owner = playerType;
+                
+                const effectOverlay = document.createElement('div');
+                effectOverlay.classList.add('summon-effect-overlay');
+                slot.appendChild(effectOverlay);
+                
                 const creatureInSlot = gameState[playerType].field[i];
                 if (creatureInSlot && creatureInSlot.card && creatureInSlot.card.id) {
                     const cardElement = createCardElement(creatureInSlot.card, creatureInSlot.currentHP, true, creatureInSlot); 
@@ -855,7 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             }
                         },
-                        (cardForModal, hp) => openCardDetailModal(creatureInSlot.card, hp), 
+                        (cardForModal, hp) => openCardDetailModal(creatureInSlot.card, hp),
                         creatureInSlot.currentHP
                     );
                     slot.appendChild(cardElement);
@@ -864,7 +909,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
+
     function applySpellTargetAndCleanUp(spellCard, targetObject, targetOwner, targetSlotIndex) {
         const currentTargetInfo = gameState.awaitingSpellTarget;
         const effectToApply = currentTargetInfo?.effect || spellCard?.effect; 
@@ -970,9 +1015,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const playedCard = gameState.self.hand.splice(cardIndex, 1)[0];
             gameState.self.field[emptySlotIndex] = { card: { ...playedCard }, currentHP: playedCard.hp, hasAttacked: false, powerCounters: 0 };
 
-            resolveOnSummonEffect(playedCard, 'self', emptySlotIndex);
-            checkCoreMachinaAwakening('self');
-
+          updateAllUI(); // 先にUIを更新してカードを配置
+        showSummonEffect('self', emptySlotIndex); // エフェクトを再生
+        
+        // 召喚時効果はエフェクトの後でも良いし、同時でも良い。ここではエフェクトと同時に発動。
+        resolveOnSummonEffect(playedCard, 'self', emptySlotIndex);
+        checkCoreMachinaAwakening('self');
+        
         } else if (clickedCard.type === 'spell') {
             gameState.self.currentMana -= effectiveManaCost;
             
@@ -986,10 +1035,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             gameState.self.spellsCastThisTurn++;
             gameState.self.field.forEach(fieldCreature => {
-                if (fieldCreature && fieldCreature.card.id === 'C_E01') { 
-                    fieldCreature.powerCounters = (fieldCreature.powerCounters || 0) + 1;
-                    console.log(`見習い詠唱者(${fieldCreature.card.name})のカウンターが ${fieldCreature.powerCounters} になりました。`);
-                }
+                   if (fieldCreature && fieldCreature.card.id === 'C_E01') { // 見習い詠唱者のID
+            // gameLogic.jsの関数を使ってカウンターを増やす
+            const updatedCreature = applyApprenticeChanterGrowth(fieldCreature); // グローバルスコープの関数を呼ぶ想定
+            gameState.self.field[index] = updatedCreature; // 更新されたオブジェクトでgameStateを更新
+            console.log(`見習い詠唱者(${updatedCreature.card.name})のカウンターが ${updatedCreature.powerCounters} になりました。(handleCardClickより)`);
+        }
+    
             });
             
             const solarisOnField = gameState.self.field.find(c => c && c.card.id === 'DM_E01');
@@ -1866,6 +1918,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (uiElements.clearDeckButton) uiElements.clearDeckButton.addEventListener('click', () => { if (confirm("編集中デッキと選択中デッキマスターをクリアしますか？")) { currentEditingDeck = []; currentEditingDMs = []; renderCurrentDeckDisplay(); renderCurrentDMs(); updateDeckCounts(); }});
     if (uiElements.saveDeckButton) uiElements.saveDeckButton.addEventListener('click', () => { if (currentEditingDeck.length !== MAX_DECK_SIZE) { alert(`デッキは${MAX_DECK_SIZE}枚。現在${currentEditingDeck.length}枚`); return; } if (currentEditingDMs.length !== MAX_DECK_MASTERS) { alert(`DMは${MAX_DECK_MASTERS}枚。現在${currentEditingDMs.length}枚`); return; } localStorage.setItem('playerDeck', JSON.stringify(currentEditingDeck.map(card => card.id))); localStorage.setItem('playerDeckMasters', JSON.stringify(currentEditingDMs.map(dm => dm.id))); localStorage.removeItem('editingPlayerDeck'); alert('デッキとDMを保存しました！'); if (uiElements.deckEditorScreen) uiElements.deckEditorScreen.style.display = 'none'; if (uiElements.startScreen) uiElements.startScreen.style.display = 'flex'; });
     
+// ▼▼▼ これを既存のイベントリスナー群の近くに追加 ▼▼▼
+    if (uiElements.graveyardDisplayArea) {
+        uiElements.graveyardDisplayArea.addEventListener('click', openGraveyardModal);
+    } else {
+        console.error("墓地表示エリア(#graveyard-display-area)が見つかりません。");
+    }
+
+    if (uiElements.graveyardModalCloseButton) {
+        uiElements.graveyardModalCloseButton.addEventListener('click', closeGraveyardModal);
+    } else {
+        console.error("墓地モーダル閉じるボタン(#graveyard-modal-close-button)が見つかりません。");
+    }
+
+    // モーダルの外側クリックで閉じる
+    if (uiElements.graveyardViewModal) {
+        uiElements.graveyardViewModal.addEventListener('click', (event) => {
+            if (event.target === uiElements.graveyardViewModal) {
+                closeGraveyardModal();
+            }
+        });
+    }
+    // ▲▲▲ ここまで追加 ▲▲▲
+
     if (uiElements.drawButton) { 
         uiElements.drawButton.addEventListener('click', () => { 
             if (gameState.currentPlayer !== 'self' || gameState.currentPhase !== 'draw' || gameState.currentPhase === 'gameOver') { 
@@ -1930,34 +2005,36 @@ document.addEventListener('DOMContentLoaded', () => {
         uiElements.resetGameButton.addEventListener('click', resetGame); 
     } else { console.error("リセットゲームボタンが見つかりません。");}
 
-    async function startOpponentTurn() {
-        if (gameState.currentPlayer !== 'opponent' || gameState.currentPhase === 'gameOver' || checkGameEnd(true)) return;
+  // 既存の startOpponentTurn 関数を、以下の内容に完全に置き換えてください。
+// 既存の startOpponentTurn 関数を、以下の内容に完全に置き換えてください。
+async function startOpponentTurn() {
+    if (gameState.currentPlayer !== 'opponent' || gameState.currentPhase === 'gameOver' || checkGameEnd(true)) return;
 
-        console.log("--- 相手のターン ---");
-        gameState.currentPhase = 'opponent_turn_processing';
-        updateUI();
+    console.log("--- 相手のターン ---");
+    gameState.currentPhase = 'opponent_turn_processing';
+    updateUI();
 
+    try {
         // ドローフェーズ
         console.log("相手: ドローフェーズ");
         await new Promise(r => setTimeout(r, 800));
         if (!drawCardToHand('opponent')) {
             updateAllUI(); return;
         }
-        console.log(`相手ドロー後手札: ${gameState.opponent.hand.length}`); updateAllUI();
+        updateAllUI();
 
         // マナフェーズ
         console.log("相手: マナフェーズ");
         await new Promise(r => setTimeout(r, 800));
         gameState.opponent.maxMana = Math.min(10, gameState.opponent.maxMana + 1);
         gameState.opponent.currentMana = gameState.opponent.maxMana;
-        console.log(`相手マナ: ${gameState.opponent.currentMana}/${gameState.opponent.maxMana}`); updateAllUI();
+        updateAllUI();
 
         // メインフェーズ (クリーチャー召喚試行)
         console.log("相手: メインフェーズ (クリーチャー召喚試行)");
         await new Promise(r => setTimeout(r, 1000));
         const emptyOpponentSlotsCount = gameState.opponent.field.filter(s => s === null).length;
         if (emptyOpponentSlotsCount > 0) {
-            let cardPlayedThisTurn = false;
             const playableCreatures = gameState.opponent.hand
                 .filter(card => card && card.type === 'creature' && gameState.opponent.currentMana >= card.manaCost)
                 .sort((a,b) => b.manaCost - a.manaCost); 
@@ -1971,22 +2048,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     const targetSlotIndex = gameState.opponent.field.findIndex(s => s === null);
                     if (targetSlotIndex !== -1) {
                         gameState.opponent.field[targetSlotIndex] = { card: { ...playedCreature }, currentHP: playedCreature.hp, hasAttacked: false, powerCounters: 0 };
+                        
+                        console.log(`相手が ${playedCreature.name} を召喚。`);
+                        updateAllUI(); // ★UIを更新してカードを先に表示
+                        showSummonEffect('opponent', targetSlotIndex); // ★エフェクトを再生
+                        await new Promise(r => setTimeout(r, 500)); // ★エフェクトを少し見せる
+
                         resolveOnSummonEffect(playedCreature, 'opponent', targetSlotIndex);
                         checkCoreMachinaAwakening('opponent');
                     }
-                    console.log(`相手が ${playedCreature.name} を召喚。`);
-                    alert(`相手が ${playedCreature.name} を召喚！`);
-                    cardPlayedThisTurn = true;
-                    updateAllUI();
-                    await new Promise(r => setTimeout(r, 1000));
                 }
+            } else {
+                console.log("相手はプレイできるクリーチャー/マナがありませんでした。");
             }
-            if (!cardPlayedThisTurn) console.log("相手はプレイできるクリーチャー/マナがありませんでした。");
-        } else console.log("相手のフィールドは満杯。");
+        } else {
+            console.log("相手のフィールドは満杯。");
+        }
+        updateAllUI(); // メインフェーズ終了時点でのUI更新
 
         // アタックフェーズ
         console.log("相手: アタックフェーズ");
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 1500)); // 攻撃前に少し長めの間
         const availableAiAttackers = gameState.opponent.field.map((c, i) => c ? { ...c, originalIndex: i } : null).filter(c => c && !c.hasAttacked);
 
         for (const aiAttacker of availableAiAttackers) {
@@ -1997,6 +2079,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const playerCreatures = gameState.self.field.map((c, i) => c ? { object: c, originalIndex: i, type: 'creature' } : null).filter(item => item);
             const playerDMs = gameState.self.deckMasters.map((dmObj, i) => (dmObj && dmObj.card && !dmObj.isSummoned && dmObj.currentHP > 0) ? { object: dmObj, originalIndex: i, type: 'deckMaster' } : null).filter(item => item);
 
+            // 攻撃対象の決定ロジック (変更なし)
             if (playerCreatures.length > 0) {
                 playerCreatures.sort((a, b) => a.object.currentHP - b.object.currentHP);
                 targetObject = playerCreatures[0].object;
@@ -2011,7 +2094,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (targetObject && targetObject.card) {
                 console.log(`相手の ${aiAttacker.card.name} があなたの ${targetObject.card.name} に攻撃！`);
-                alert(`相手の ${aiAttacker.card.name} があなたの ${targetObject.card.name} に攻撃！`);
+                // alert(`相手の ${aiAttacker.card.name} があなたの ${targetObject.card.name} に攻撃！`); // ★この行も削除
                 const aiAttackerState = { card: aiAttacker.card, currentHP: aiAttacker.currentHP, slotIndex: aiAttacker.originalIndex };
                 performCombat('opponent', aiAttackerState, targetObject, targetSlotIndex, targetType, 'self');
 
@@ -2025,25 +2108,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 const playerHasNoBlockers = !gameState.self.field.some(c => c) && !gameState.self.deckMasters.some(dm => dm && dm.card && !dm.isSummoned && dm.currentHP > 0);
                 if(playerHasNoBlockers){
                     console.log(`相手 ${aiAttacker.card.name} がダイレクトアタック！`);
-                    alert(`相手 ${aiAttacker.card.name} がダイレクトアタック！`);
+                    // alert(`相手 ${aiAttacker.card.name} がダイレクトアタック！`); // ★この行も削除
                     performDirectAttack('opponent');
                     break;
                 } else {
-                     console.log(`相手 ${aiAttacker.card.name} は攻撃対象なし（ダイレクトアタック条件も満たさず）。`);
+                     console.log(`相手 ${aiAttacker.card.name} は攻撃対象なし。`);
                 }
             }
         }
         if (availableAiAttackers.length === 0) console.log("相手は攻撃できるクリーチャーがいません。");
-
-        // エンドフェーズ
+    } catch (error) {
+        console.error("相手ターン中にエラーが発生しました:", error);
+    } finally {
+        // エンドフェーズとターン移行処理
         console.log("相手: エンドフェーズ");
         await new Promise(r => setTimeout(r, 800));
         gameState.opponent.field.forEach(c => { if (c) c.hasAttacked = false; });
         while (gameState.opponent.hand.length > 7) {
-            const discarded = gameState.opponent.hand.pop(); gameState.graveyard.push(discarded);
-            alert(`相手が手札が8枚以上なので「${discarded.name}」を捨てました。`);
+            const discarded = gameState.opponent.hand.pop();
+            console.log(`相手が手札上限超過で「${discarded.name}」を捨てました。`);
+            // alert(`相手が手札が8枚以上なので「${discarded.name}」を捨てました。`); // ★この行も削除
         }
-        updateUI();
+        updateAllUI(); // エンドフェーズ後の最終更新
 
         if (checkGameEnd(true)) return;
 
@@ -2059,5 +2145,4 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.self.maxMana = Math.min(10, gameState.self.maxMana + 1);
         gameState.self.currentMana = gameState.self.maxMana;
         updateAllUI();
-    }
-});
+    }}});
