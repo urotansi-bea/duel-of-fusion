@@ -2503,4 +2503,3 @@ function resolveOnSummonEffect(card, ownerPlayerType, fieldSlotIndex) {
             }
         }
     }
-
